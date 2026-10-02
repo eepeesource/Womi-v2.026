@@ -65,7 +65,12 @@ pre{white-space:pre-wrap;line-height:1.7;color:#ddd;margin:0;font-size:clamp(12p
 .bigmono{font-size:clamp(18px,3vw,28px);line-height:1.55}
 .scan{margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#0a0a0c}
 .good{color:var(--green)} .warn{color:#e7c27b}.bad{color:var(--red)}
-.back{position:absolute;right:18px;top:52px;font-size:11px;color:#777;background:none;border:0;cursor:pointer}
+.screen-nav{position:absolute;right:18px;top:52px;display:flex;gap:10px;align-items:center;z-index:2}
+.screen-nav button{font:inherit;font-size:11px;letter-spacing:.04em;color:#888;background:none;border:0;padding:5px 0;cursor:pointer}
+.screen-nav button:hover{color:var(--accent)}
+.screen-nav button:focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+.repair{margin-top:22px;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:rgba(5,5,7,.52)}
+.repair p{font-size:16px;margin:0 0 12px}.repair-result{color:var(--accent);font-family:inherit!important;font-size:13px!important}
 @media(max-width:650px){
  .app{padding:8px}
  .screen{min-height:calc(100vh - 20px);border-radius:18px}
@@ -83,7 +88,7 @@ pre{white-space:pre-wrap;line-height:1.7;color:#ddd;margin:0;font-size:clamp(12p
  .memory{grid-template-columns:1fr}
  .memory img,.memory video{max-height:320px}
  .card{padding:16px}
- .back{top:48px;right:12px}
+ .screen-nav{top:48px;right:12px}
 }
 </style>
 </head>
@@ -94,16 +99,15 @@ pre{white-space:pre-wrap;line-height:1.7;color:#ddd;margin:0;font-size:clamp(12p
 </main></div>
 
 <script>
-const photos=["IMG_3739.jpeg","IMG_1562.jpeg","IMG_0600.jpeg","IMG_0530.jpeg","IMG_4958.jpeg","IMG_4969.jpeg"];
 const memories=[
-{title:"01.01.2025 — INITIALIZATION",text:"The relationship officially began over the phone. But apparently, one girlfriend request was not enough."},
-{title:"11.01.2025 — BLACK PEPPER",text:"Ten days later, you asked again — this time with restaurant waiters, chocolate writing, a plate that said “Will you be my girlfriend?”, and Perfect by Ed Sheeran. Subtle."},
-{title:"MUFASA — 4D",text:"The first movie you took me to. I was ridiculously excited. You watched me watching the screen and promised you would keep that smile on my face and keep me happy for the rest of our lives."},
-{title:"CHRISTMAS VILLAGE",text:"Our first Christmas together. Pretty lights, Santa, pictures, a ridiculous musical Santa hat, ice cream, meat — and a very happy girl."},
-{title:"TRUCK CENTRAL",text:"Two nights after the proposal. T-shirts, music, singing, chips, spontaneous shopping, three dresses, and a night that didn't need to be complicated to become a favourite."},
-{title:"SALSA.EXE",text:"A tired/grumpy Esther. A 'Come, come, come.' YouTube. Salsa lessons. Two left feet. Possibly three. Somehow one of my favourite memories."},
-{title:"VALENTINE'S DAY",text:"You resisted the rom-com. Then you watched it. Then you laughed through it. Then you loved it. The evidence has been preserved."},
-{title:"SPIDER-MAN",text:"One of our favourite dates this year. Because apparently, some of the best nights are just: get dressed, go out, watch a great movie, enjoy each other."}
+{title:"01.01.2025 — INITIALIZATION",text:"The relationship officially began over the phone. But apparently, one girlfriend request was not enough.",media:"IMG_3739.jpeg"},
+{title:"11.01.2025 — BLACK PEPPER",text:"Ten days later, you asked again — this time with restaurant waiters, chocolate writing, a plate that said “Will you be my girlfriend?”, and Perfect by Ed Sheeran. Subtle.",media:"IMG_1562.jpeg"},
+{title:"MUFASA — 4D",text:"The first movie you took me to. I was ridiculously excited. You watched me watching the screen and promised you would keep that smile on my face and keep me happy for the rest of our lives.",media:"IMG_0600.jpeg"},
+{title:"CHRISTMAS VILLAGE",text:"Our first Christmas together. Pretty lights, Santa, pictures, a ridiculous musical Santa hat, ice cream, meat — and a very happy girl.",media:"IMG_0530.jpeg"},
+{title:"TRUCK CENTRAL",text:"Two nights after the proposal. T-shirts, music, singing, chips, spontaneous shopping, three dresses, and a night that didn't need to be complicated to become a favourite.",media:"IMG_3760.mp4",type:"video"},
+{title:"SALSA.EXE",text:"A tired/grumpy Esther. A 'Come, come, come.' YouTube. Salsa lessons. Two left feet. Possibly three. Somehow one of my favourite memories.",media:"IMG_4958.jpeg"},
+{title:"VALENTINE'S DAY",text:"You resisted the rom-com. Then you watched it. Then you laughed through it. Then you loved it. The evidence has been preserved.",media:"IMG_4969.jpeg"},
+{title:"SPIDER-MAN",text:"One of our favourite dates this year. Because apparently, some of the best nights are just: get dressed, go out, watch a great movie, enjoy each other.",media:"IMG_3739.jpeg"}
 ];
 const bugs=[
 ["BUG_001 — RAPID SLEEP PROTOCOL","Falls asleep in under 30 seconds. Even when he has just announced that he is absolutely not tired.","CRITICAL"],
@@ -125,30 +129,51 @@ const features=[
 ["MUSIC COMPATIBILITY","Shared love of old music detected."],
 ["COMPLIMENT ENGINE","Highly operational. Particularly active before dates and church."]
 ];
+let currentRoute=null,currentState={},navigationHistory=[],bootTimer=null;
 function set(html){document.getElementById("content").innerHTML=html;window.scrollTo(0,0)}
+function controls({backLabel="← BACK",showBack=navigationHistory.length>0,showHome=true,showRestart=false}={}){
+  return `<nav class="screen-nav" aria-label="System navigation">${showBack?`<button type="button" onclick="BACK()">${backLabel}</button>`:""}${showHome?`<button type="button" onclick="HOME()">⌂ HOME</button>`:""}${showRestart?`<button type="button" onclick="RESTART()">↻ RESTART</button>`:""}</nav>`;
+}
+function go(route,state={},options={}){
+  if(bootTimer){clearTimeout(bootTimer);bootTimer=null}
+  if(options.reset)navigationHistory=[];
+  else if(currentRoute&&!options.replace)navigationHistory.push({route:currentRoute,state:currentState});
+  currentRoute=route;currentState=state;
+  const renderers={boot,intro,diagnostics,bugs:bugDatabase,bug,archive,memory,love:loveFile,upgrade,lastDay,god,finale};
+  renderers[route](state);
+}
+function HOME(){go("boot",{}, {reset:true})}
+function RESTART(){HOME()}
+function BACK(){const previous=navigationHistory.pop();if(previous)go(previous.route,previous.state,{replace:true});else HOME()}
+function NEXT(){
+  const routes={intro:()=>go("diagnostics"),diagnostics:()=>go("bugs"),bugs:()=>go("archive"),archive:()=>go("love"),love:()=>go("upgrade"),upgrade:()=>go("lastDay"),lastDay:()=>go("god"),god:()=>go("finale")};
+  if(currentRoute==="memory"){if(currentState.index<memories.length-1)go("memory",{index:currentState.index+1},{replace:true});else go("archive",{}, {replace:true});return}
+  routes[currentRoute]?.();
+}
 function nav(fn,label="CONTINUE →"){const b=document.createElement("div");b.className="row";b.innerHTML=`<button class="btn primary">${label}</button>`;b.querySelector("button").onclick=fn;document.getElementById("content").appendChild(b)}
 function boot(){
 set(`<div class="kicker">JER v2.026</div><h1>FINAL<br>BOYFRIEND<br>BUILD</h1><div class="log" id="log"></div><div class="progress"><span id="bar"></span></div><div class="small">ESTHER-PRAISE // PRIVATE RELATIONSHIP SYSTEM</div>`);
 const lines=["Loading relationship data........ ✓","Loading memories................ ✓","Loading affection............... ✓","Loading Esther-Praise........... ✓","Checking upgrade path........... ⚠"];
 let i=0;const log=document.getElementById("log"),bar=document.getElementById("bar");
-const t=setInterval(()=>{if(i<lines.length){let d=document.createElement("div");d.className="line";d.textContent=lines[i];log.appendChild(d);bar.style.width=((i+1)/lines.length*100)+"%";i++}else{clearInterval(t);setTimeout(()=>intro(),650)}},430)}
-function intro(){set(`<div class="kicker">SYSTEM NOTICE</div><h2>This is the final supported version of<br>JER — BOYFRIEND EDITION.</h2><p>A major system upgrade has already been scheduled.</p><div class="log"><pre>Current version : JER v2.026 — BOYFRIEND
+const t=setInterval(()=>{if(i<lines.length){let d=document.createElement("div");d.className="line";d.textContent=lines[i];log.appendChild(d);bar.style.width=((i+1)/lines.length*100)+"%";i++}else{clearInterval(t);bootTimer=setTimeout(()=>go("intro",{}, {replace:true}),650)}},430)}
+function intro(){set(`${controls({showBack:false})}<div class="kicker">SYSTEM NOTICE</div><h2>This is the final supported version of<br>JER — BOYFRIEND EDITION.</h2><p>A major system upgrade has already been scheduled.</p><div class="log"><pre>Current version : JER v2.026 — BOYFRIEND
 Upgrade target  : JER v3.0   — HUSBAND
 Deployment date : 19.12.2026
 
-This upgrade is irreversible.</pre></div>`);nav(()=>diagnostics(),"RUN BOYFRIEND DIAGNOSTICS →")}
-function diagnostics(){let html=`<div class="kicker">01 / DIAGNOSTICS</div><h2>Scanning boyfriend systems...</h2><div class="cardgrid">`;features.forEach(f=>html+=`<div class="card"><strong>${f[0]}</strong><div>${f[1]}</div><div class="status">✓ OPERATIONAL</div></div>`);html+=`</div><div class="row"><button class="btn primary" onclick="bugDatabase()">SCAN KNOWN BUGS →</button></div>`;set(html)}
-function bugDatabase(){let html=`<div class="kicker">02 / KNOWN BUGS</div><h2>Eight bugs detected.</h2><p class="dim">Select a bug to inspect it.</p><div class="cardgrid">`;bugs.forEach((b,i)=>html+=`<div class="card" onclick="bug(${i})"><strong>${b[0]}</strong><div>${b[1]}</div><div class="status warn">${b[2]}</div></div>`);html+=`</div>`;set(html)}
-function bug(i){const b=bugs[i];set(`<button class="back" onclick="bugDatabase()">← ALL BUGS</button><div class="kicker">BUG REPORT</div><h2>${b[0]}</h2><div class="log"><pre>SEVERITY: ${b[2]}
+This upgrade is irreversible.</pre></div>`);nav(NEXT,"RUN BOYFRIEND DIAGNOSTICS →")}
+function diagnostics(){let html=`${controls()}<div class="kicker">01 / DIAGNOSTICS</div><h2>Scanning boyfriend systems...</h2><div class="cardgrid">`;features.forEach(f=>html+=`<div class="card"><strong>${f[0]}</strong><div>${f[1]}</div><div class="status">✓ OPERATIONAL</div></div>`);html+=`</div><div class="row"><button class="btn primary" onclick="NEXT()">SCAN KNOWN BUGS →</button></div>`;set(html)}
+function bugDatabase(){let html=`${controls()}<div class="kicker">02 / KNOWN BUGS</div><h2>Eight bugs detected.</h2><p class="dim">Select a bug to inspect it.</p><div class="cardgrid">`;bugs.forEach((b,i)=>html+=`<div class="card" onclick="go('bug',{index:${i}})"><strong>${b[0]}</strong><div>${b[1]}</div><div class="status warn">${b[2]}</div></div>`);html+=`</div><div class="repair"><p class="dim">8 bugs detected → Would you like to repair them?</p><button class="btn" type="button" onclick="repairBugs()">YES, REPAIR THEM</button><p id="repair-result" class="repair-result" aria-live="polite"></p></div><div class="row"><button class="btn primary" onclick="NEXT()">OPEN MEMORY ARCHIVE →</button></div>`;set(html)}
+function repairBugs(){document.getElementById("repair-result").textContent="ERROR. Why would we fix him? He's loved exactly like this."}
+function bug({index:i}){const b=bugs[i];set(`${controls({backLabel:"← ALL BUGS"})}<div class="kicker">BUG REPORT</div><h2>${b[0]}</h2><div class="log"><pre>SEVERITY: ${b[2]}
 
 ${b[1]}
 
 STATUS: KNOWN
-PATCH: UNAVAILABLE</pre></div><p>${i===5?"Why does Esther have to ask twice? This remains one of the great unsolved mysteries of the relationship.":i===7?"Environmental conditions are not technically Jer's fault. The laughing, however, has been documented.":"The system has elected to keep this feature."}</p>`);nav(()=>bugDatabase(),"RETURN TO BUG DATABASE")}
-function memory(i){const m=memories[i],img=photos[i%photos.length];let media=`<img src="${img}" alt="Memory photo">`;if(i===4)media=`<video controls playsinline src="IMG_3760.mp4"></video>`;set(`<button class="back" onclick="archive()">← ARCHIVE</button><div class="kicker">MEMORY ARCHIVE</div><div class="memory"><div>${media}</div><div class="quote"><h2>${m.title}</h2><p>${m.text}</p></div></div>`);nav(()=>archive(),"NEXT MEMORY →")}
-function archive(){let html=`<div class="kicker">03 / MEMORY ARCHIVE</div><h2>Proof that the best things happened in ordinary moments.</h2><div class="cardgrid">`;memories.forEach((m,i)=>html+=`<div class="card" onclick="memory(${i})"><strong>${m.title}</strong><div>${m.text}</div></div>`);html+=`</div><div class="row"><button class="btn primary" onclick="loveFile()">OPEN LOVE FILE →</button></div>`;set(html)}
-function loveFile(){set(`<div class="kicker">04 / LOVE FILE</div><h2>Why Esther-Praise keeps choosing you.</h2><p>Because you're brilliant and attentive. Because you're precise and analytical and somehow always thinking a few steps ahead.</p><p>Because you're generous — sometimes absurdly so. Because you try to outdo yourself with gifts. Because you're kind and funny and you understand the jokes.</p><p>Because you laugh when I'm being silly. Not at me. With me. Because you think I'm cute when I'm being completely ridiculous.</p><p>Because you tell me I'm beautiful when we're dressed up for a date or church, and somehow you make the compliment feel like something you genuinely mean every time.</p><p>And because some of my favourite memories are simply us: a movie, a conversation that somehow becomes philosophical, old music, a ridiculous dance tutorial, pretty lights, or getting dressed and going somewhere together.</p>`);nav(()=>upgrade(),"RUN FINAL SYSTEM UPDATE →")}
-function upgrade(){set(`<div class="center fade"><div class="kicker">05 / SYSTEM UPDATE</div><div class="heart">💍</div><h1>UPGRADE<br>AVAILABLE</h1><div class="log"><pre>JER v2.026
+PATCH: UNAVAILABLE</pre></div><p>${i===5?"Why does Esther have to ask twice? This remains one of the great unsolved mysteries of the relationship.":i===7?"Environmental conditions are not technically Jer's fault. The laughing, however, has been documented.":"The system has elected to keep this feature."}</p>`)}
+function memory({index:i}){const m=memories[i];const media=m.type==="video"?`<video controls playsinline preload="metadata" src="${m.media}"></video>`:`<img src="${m.media}" alt="${m.title} memory photo">`;const label=i===memories.length-1?"RETURN TO ARCHIVE →":"NEXT MEMORY →";set(`${controls({backLabel:"← ARCHIVE"})}<div class="kicker">MEMORY ARCHIVE</div><div class="memory"><div>${media}</div><div class="quote"><h2>${m.title}</h2><p>${m.text}</p></div></div>`);nav(NEXT,label)}
+function archive(){let html=`${controls()}<div class="kicker">03 / MEMORY ARCHIVE</div><h2>Proof that the best things happened in ordinary moments.</h2><div class="cardgrid">`;memories.forEach((m,i)=>html+=`<div class="card" onclick="go('memory',{index:${i}})"><strong>${m.title}</strong><div>${m.text}</div></div>`);html+=`</div><div class="row"><button class="btn primary" onclick="NEXT()">OPEN LOVE FILE →</button></div>`;set(html)}
+function loveFile(){set(`${controls()}<div class="kicker">04 / LOVE FILE</div><h2>Why Esther-Praise keeps choosing you.</h2><p>Because you're brilliant and attentive. Because you're precise and analytical and somehow always thinking a few steps ahead.</p><p>Because you're generous — sometimes absurdly so. Because you try to outdo yourself with gifts. Because you're kind and funny and you understand the jokes.</p><p>Because you laugh when I'm being silly. Not at me. With me. Because you think I'm cute when I'm being completely ridiculous.</p><p>Because you tell me I'm beautiful when we're dressed up for a date or church, and somehow you make the compliment feel like something you genuinely mean every time.</p><p>And because some of my favourite memories are simply us: a movie, a conversation that somehow becomes philosophical, old music, a ridiculous dance tutorial, pretty lights, or getting dressed and going somewhere together.</p>`);nav(NEXT,"RUN FINAL SYSTEM UPDATE →")}
+function upgrade(){set(`${controls()}<div class="center fade"><div class="kicker">05 / SYSTEM UPDATE</div><div class="heart">💍</div><h1>UPGRADE<br>AVAILABLE</h1><div class="log"><pre>JER v2.026
 BOYFRIEND EDITION
 
         ↓
@@ -156,10 +181,10 @@ BOYFRIEND EDITION
 JER v3.0
 HUSBAND EDITION
 
-RELEASE: 19.12.2026</pre></div><p>This isn't an ending. It's a new season.</p>`);nav(()=>lastDay(),"INSTALL UPGRADE →")}
-function lastDay(){set(`<div class="center fade"><div class="kicker">06 / THE LAST BOYFRIEND'S DAY</div><h2>This one carries weight.</h2><p>This is the last time I'll celebrate you as my boyfriend and my fiancé.</p><p>Next year, I'll be celebrating my husband.</p><p>And the best part is that I'll still be dating you — because we promised we would keep dating each other even after we're married.</p><p>So this isn't goodbye to one version of us. It's the doorway into another.</p>`);nav(()=>god(),"OPEN FINAL MESSAGE →")}
-function god(){set(`<div class="center fade"><div class="kicker">07 / FINAL MESSAGE</div><div class="heart">❤️</div><p>I've never believed that we found each other by accident.</p><p>God has been in our story from the beginning. Somehow, even the little things feel intentional — two birthdays just two days apart, two lives moving through the world until they eventually met in exactly the way they were meant to.</p><p>From a phone call on January 1st, to chocolate on a plate at Black Pepper, to a proposal, to this final Boyfriend's Day, and soon to the day I get to call you my husband...</p><p>I look at our story and see a God who knew what He was doing long before we did.</p><p>And if I had the chance to start it all over again, I'd still choose you.</p><p>I'd still laugh with you. I'd still watch movies with you. I'd still dance terribly with you. I'd still steal your shirts — even if you make me ask twice. 😂</p><p>I'd still choose this life with you.</p><h2>Happy Last Boyfriend's Day, Jer Bear.</h2><p>Here's to the final boyfriend build — and every version of you that comes after.</p><p><strong>Always yours,<br>Esther-Praise ❤️</strong></p>`);nav(()=>finale(),"COMPLETE SYSTEM →")}
-function finale(){set(`<div class="center fade"><div class="kicker">SYSTEM STATUS</div><div class="heart">❤️</div><div class="bigmono">LOVED.<br><span class="dim">DEEPLY.</span><br>INTENTIONALLY.</div><p>BY ESTHER-PRAISE.</p><div class="log"><pre>BOYFRIEND EDITION
+RELEASE: 19.12.2026</pre></div><p>This isn't an ending. It's a new season.</p></div>`);nav(NEXT,"INSTALL UPGRADE →")}
+function lastDay(){set(`${controls()}<div class="center fade"><div class="kicker">06 / THE LAST BOYFRIEND'S DAY</div><h2>This one carries weight.</h2><p>This is the last time I'll celebrate you as my boyfriend and my fiancé.</p><p>Next year, I'll be celebrating my husband.</p><p>And the best part is that I'll still be dating you — because we promised we would keep dating each other even after we're married.</p><p>So this isn't goodbye to one version of us. It's the doorway into another.</p></div>`);nav(NEXT,"OPEN FINAL MESSAGE →")}
+function god(){set(`${controls()}<div class="center fade"><div class="kicker">07 / FINAL MESSAGE</div><div class="heart">❤️</div><p>I've never believed that we found each other by accident.</p><p>God has been in our story from the beginning. Somehow, even the little things feel intentional — two birthdays just two days apart, two lives moving through the world until they eventually met in exactly the way they were meant to.</p><p>From a phone call on January 1st, to chocolate on a plate at Black Pepper, to a proposal, to this final Boyfriend's Day, and soon to the day I get to call you my husband...</p><p>I look at our story and see a God who knew what He was doing long before we did.</p><p>And if I had the chance to start it all over again, I'd still choose you.</p><p>I'd still laugh with you. I'd still watch movies with you. I'd still dance terribly with you. I'd still steal your shirts — even if you make me ask twice. 😂</p><p>I'd still choose this life with you.</p><h2>Happy Last Boyfriend's Day, Jer Bear.</h2><p>Here's to the final boyfriend build — and every version of you that comes after.</p><p><strong>Always yours,<br>Esther-Praise ❤️</strong></p></div>`);nav(NEXT,"COMPLETE SYSTEM →")}
+function finale(){set(`${controls({showRestart:true})}<div class="center fade"><div class="kicker">SYSTEM STATUS</div><div class="heart">❤️</div><div class="bigmono">LOVED.<br><span class="dim">DEEPLY.</span><br>INTENTIONALLY.</div><p>BY ESTHER-PRAISE.</p><div class="log"><pre>BOYFRIEND EDITION
 STATUS: COMPLETE
 
 HUSBAND EDITION
@@ -170,7 +195,7 @@ STATUS: SCHEDULED
 No patches required.
 No replacement necessary.
 Upgrade approved. ❤️</pre></div><p class="small">JER v2.026 // FINAL BOYFRIEND BUILD</p></div>`)}
-boot();
+go("boot",{}, {reset:true});
 </script>
 </body>
 </html>
